@@ -1,6 +1,6 @@
+import streamlit as st
 import os
 import time
-from flask import Flask, render_template, request, send_from_directory
 from moviepy.editor import (
     ImageClip,
     TextClip,
@@ -9,127 +9,137 @@ from moviepy.editor import (
     ColorClip
 )
 
-app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'static/videos'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+st.set_page_config(page_title="AI Property Video Generator", page_icon="✨", layout="wide")
 
-# 10+ Template Theme Configurations
+# Universe Background & Sparkle White Theme CSS Styling
+st.markdown("""
+<style>
+    .stApp {
+        background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        color: #ffffff;
+    }
+    .sparkle-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 8px 32px 0 rgba(255, 255, 255, 0.15);
+        margin-bottom: 20px;
+    }
+    h1, h2, h3 {
+        color: #ffffff !important;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("<h1 style='text-align: center;'>✨ AI Property Video Generator</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #a0a0a0;'>CapCut-Style Templates & Universe Aesthetics</p>", unsafe_allow_html=True)
+
 TEMPLATES = {
-    "cosmic_luxury": {"bg_color": (10, 10, 35), "text_color": "white", "overlay_opacity": 0.4},
-    "neon_cyber": {"bg_color": (5, 25, 45), "text_color": "#00ffff", "overlay_opacity": 0.3},
-    "minimal_white": {"bg_color": (240, 240, 245), "text_color": "black", "overlay_opacity": 0.1},
-    "cinematic_dark": {"bg_color": (0, 0, 0), "text_color": "#f1c40f", "overlay_opacity": 0.6},
-    "nature_green": {"bg_color": (15, 35, 20), "text_color": "#e8f8f5", "overlay_opacity": 0.3},
-    "sunset_gold": {"bg_color": (45, 20, 10), "text_color": "#f39c12", "overlay_opacity": 0.35},
-    "capcut_fast": {"bg_color": (20, 20, 20), "text_color": "#ff0055", "overlay_opacity": 0.25},
-    "royal_purple": {"bg_color": (30, 10, 45), "text_color": "#e0aaff", "overlay_opacity": 0.4},
-    "vintage_film": {"bg_color": (35, 30, 25), "text_color": "#f5ebe0", "overlay_opacity": 0.45},
-    "modern_bold": {"bg_color": (15, 15, 15), "text_color": "#ffffff", "overlay_opacity": 0.3}
+    "Cosmic Luxury": {"bg_color": (10, 10, 35), "text_color": "white", "opacity": 0.4},
+    "Neon Cyber": {"bg_color": (5, 25, 45), "text_color": "#00ffff", "opacity": 0.3},
+    "Minimal Sparkle": {"bg_color": (240, 240, 245), "text_color": "black", "opacity": 0.1},
+    "Cinematic Dark": {"bg_color": (0, 0, 0), "text_color": "#f1c40f", "opacity": 0.6},
+    "Eco Estate": {"bg_color": (15, 35, 20), "text_color": "#e8f8f5", "opacity": 0.3},
+    "Sunset Warm": {"bg_color": (45, 20, 10), "text_color": "#f39c12", "opacity": 0.35},
+    "CapCut Dynamic": {"bg_color": (20, 20, 20), "text_color": "#ff0055", "opacity": 0.25},
+    "Royal Galaxy": {"bg_color": (30, 10, 45), "text_color": "#e0aaff", "opacity": 0.4},
+    "Vintage Grain": {"bg_color": (35, 30, 25), "text_color": "#f5ebe0", "opacity": 0.45},
+    "Bold Punchy": {"bg_color": (15, 15, 15), "text_color": "#ffffff", "opacity": 0.3}
 }
 
-def create_text_layer(text, fontsize, color, duration, size=(1280, 720)):
-    try:
-        txt = TextClip(
-            text, 
-            fontsize=fontsize, 
-            color=color, 
-            font='Arial-Bold', 
-            size=(size[0] - 120, None), 
-            method='caption'
-        ).set_duration(duration)
-        return txt.set_position('center')
-    except Exception as e:
-        print(f"Text Render Notice: {e}")
-        return ColorClip(size=size, color=(0, 0, 0), duration=duration)
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("outputs", exist_ok=True)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+with st.container():
+    st.markdown('<div class="sparkle-card">', unsafe_allow_html=True)
+    st.subheader("🎨 1. Choose Template")
+    selected_template = st.selectbox("Select a video theme style:", list(TEMPLATES.keys()))
+    st.markdown('</div>', unsafe_allow_html=True)
 
-@app.route('/generate', methods=['POST'])
-def generate_video():
-    # Fetch Form Inputs
-    prop_name = request.form.get('name', 'Luxury Space Property')
-    prop_type = request.form.get('type', 'Penthouse')
-    price = request.form.get('price', 'Contact Agent')
-    location = request.form.get('location', 'Prime Location')
-    features_raw = request.form.get('features', 'Modern Amenities, Great View')
-    contact = request.form.get('contact', 'realty@assistant.com')
-    cta = request.form.get('cta', 'Book Now!')
-    
-    template_key = request.form.get('template', 'cosmic_luxury')
-    scene_duration = float(request.form.get('duration', 3.5))
-    font_size = int(request.form.get('font_size', 42))
-    
-    # Theme configuration
-    theme = TEMPLATES.get(template_key, TEMPLATES['cosmic_luxury'])
-    
-    # Handle File Uploads
-    uploaded_files = request.files.getlist('images')
-    saved_images = []
-    
-    for file in uploaded_files:
-        if file and file.filename != '':
-            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(filepath)
-            saved_images.append(filepath)
+with st.container():
+    st.markdown('<div class="sparkle-card">', unsafe_allow_html=True)
+    st.subheader("📝 2. Property Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        prop_name = st.text_input("Property Name", "Galaxy Heights Villa")
+        prop_type = st.text_input("Property Type", "Penthouse")
+        price = st.text_input("Price", "$650,000")
+    with col2:
+        location = st.text_input("Location", "Orbit Sector 9, Sky City")
+        features_input = st.text_input("Key Features (Comma separated)", "Panoramic Glass Views, Infinity Pool, Smart Home, Private Terrace")
+        contact = st.text_input("Contact Info", "Call: +1-800-UNIVERSE")
+    cta = st.text_input("Call To Action (CTA)", "Book Your Private Stargazing Tour Today!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Fallback placeholder image generation if no image provided
-    if not saved_images:
-        placeholder = os.path.join(UPLOAD_FOLDER, 'placeholder.png')
-        dummy = ColorClip(size=(1280, 720), color=theme['bg_color'], duration=1)
-        dummy.save_frame(placeholder)
-        saved_images.append(placeholder)
+with st.container():
+    st.markdown('<div class="sparkle-card">', unsafe_allow_html=True)
+    st.subheader("🖼️ 3. Upload Property Images")
+    uploaded_files = st.file_uploader("Upload property photos", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    width, height = 1280, 720
-    clips = []
+with st.container():
+    st.markdown('<div class="sparkle-card">', unsafe_allow_html=True)
+    st.subheader("✂️ 4. Video Editing Settings")
+    col3, col4 = st.columns(2)
+    with col3:
+        scene_duration = st.slider("Scene Duration (Seconds)", 2.0, 6.0, 3.5)
+    with col4:
+        font_size = st.selectbox("Font Size", [35, 42, 50], index=1)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Scene 1: Title Scene
-    title_text = f"{prop_name}\n{prop_type} | {location}\nPrice: {price}"
-    bg_1 = ImageClip(saved_images[0]).set_duration(scene_duration).resize(newsize=(width, height))
-    overlay_1 = ColorClip(size=(width, height), color=theme['bg_color']).set_duration(scene_duration).set_opacity(theme['overlay_opacity'])
-    txt_1 = create_text_layer(title_text, font_size, theme['text_color'], scene_duration)
-    clips.append(CompositeVideoClip([bg_1, overlay_1, txt_1]))
-
-    # Feature Scenes
-    features = [f.strip() for f in features_raw.split(',')]
-    img_idx = 1
-    for feature in features:
-        img_path = saved_images[img_idx % len(saved_images)]
-        img_idx += 1
+if st.button("✨ Generate AI Video Now", type="primary", use_container_width=True):
+    with st.spinner("Rendering video using AI engine... Please wait..."):
+        theme = TEMPLATES[selected_template]
+        saved_images = []
         
-        bg = ImageClip(img_path).set_duration(scene_duration).resize(newsize=(width, height))
-        overlay = ColorClip(size=(width, height), color=theme['bg_color']).set_duration(scene_duration).set_opacity(theme['overlay_opacity'])
-        txt = create_text_layer(f"Key Feature:\n{feature}", font_size, theme['text_color'], scene_duration)
-        clips.append(CompositeVideoClip([bg, overlay, txt]))
+        if uploaded_files:
+            for file in uploaded_files:
+                path = os.path.join("uploads", file.name)
+                with open(path, "wb") as f:
+                    f.write(file.getbuffer())
+                saved_images.append(path)
+        else:
+            fallback_path = "uploads/placeholder.png"
+            dummy = ColorClip(size=(1280, 720), color=theme["bg_color"], duration=1)
+            dummy.save_frame(fallback_path)
+            saved_images.append(fallback_path)
 
-    # Closing CTA Scene
-    closing_text = f"{cta}\n{contact}"
-    bg_end = ImageClip(saved_images[-1]).set_duration(scene_duration).resize(newsize=(width, height))
-    overlay_end = ColorClip(size=(width, height), color=theme['bg_color']).set_duration(scene_duration).set_opacity(theme['overlay_opacity'])
-    txt_end = create_text_layer(closing_text, font_size, theme['text_color'], scene_duration)
-    clips.append(CompositeVideoClip([bg_end, overlay_end, txt_end]))
+        width, height = 1280, 720
+        clips = []
 
-    # Stitch video
-    final_video = concatenate_videoclips(clips, method="compose")
-    output_filename = f"video_{int(time.time())}.mp4"
-    output_path = os.path.join(OUTPUT_FOLDER, output_filename)
-    
-    final_video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
+        def make_text(txt_content):
+            try:
+                return TextClip(txt_content, fontsize=font_size, color=theme["text_color"], font='Arial-Bold', size=(width-120, None), method='caption').set_duration(scene_duration).set_position('center')
+            except:
+                return ColorClip(size=(width, height), color=(0,0,0), duration=scene_duration)
 
-    # Return HTML Video Embed
-    return f'''
-    <div class="text-center">
-        <video controls autoplay class="mb-3">
-            <source src="/{output_path}" type="video/mp4">
-            Your browser does not support video playback.
-        </video>
-        <br>
-        <a href="/{output_path}" download class="btn btn-sparkle">📥 Download Generated Video</a>
-    </div>
-    '''
+        title_str = f"{prop_name}\n{prop_type} | {location}\nPrice: {price}"
+        bg1 = ImageClip(saved_images[0]).set_duration(scene_duration).resize(newsize=(width, height))
+        ov1 = ColorClip(size=(width, height), color=theme["bg_color"]).set_duration(scene_duration).set_opacity(theme["opacity"])
+        clips.append(CompositeVideoClip([bg1, ov1, make_text(title_str)]))
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+        features = [f.strip() for f in features_input.split(',')]
+        img_idx = 1
+        for feat in features:
+            img_p = saved_images[img_idx % len(saved_images)]
+            img_idx += 1
+            bg = ImageClip(img_p).set_duration(scene_duration).resize(newsize=(width, height))
+            ov = ColorClip(size=(width, height), color=theme["bg_color"]).set_duration(scene_duration).set_opacity(theme["opacity"])
+            clips.append(CompositeVideoClip([bg, ov, make_text(f"Key Feature:\n{feat}")]))
+
+        cta_str = f"{cta}\n{contact}"
+        bg_end = ImageClip(saved_images[-1]).set_duration(scene_duration).resize(newsize=(width, height))
+        ov_end = ColorClip(size=(width, height), color=theme["bg_color"]).set_duration(scene_duration).set_opacity(theme["opacity"])
+        clips.append(CompositeVideoClip([bg_end, ov_end, make_text(cta_str)]))
+
+        final_video = concatenate_videoclips(clips, method="compose")
+        output_path = f"outputs/property_promo_{int(time.time())}.mp4"
+        final_video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
+
+        st.success("Video successfully generated!")
+        st.video(output_path)
+        with open(output_path, "rb") as f:
+            st.download_button("📥 Download MP4 Video", f, file_name="property_promo.mp4", mime="video/mp4")
